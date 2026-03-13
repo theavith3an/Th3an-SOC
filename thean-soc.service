@@ -1,0 +1,62 @@
+# /etc/systemd/system/thean-soc.service
+# Install: sudo cp thean-soc.service /etc/systemd/system/
+#          sudo systemctl daemon-reload
+#          sudo systemctl enable thean-soc
+#          sudo systemctl start thean-soc
+
+[Unit]
+Description=THEAN Security Operations Center
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=thean
+Group=thean
+WorkingDirectory=/opt/thean-soc
+Environment="PATH=/opt/thean-soc/venv/bin"
+Environment="SECRET_KEY=REPLACE_WITH_STRONG_SECRET_64CHARS"
+Environment="JWT_SECRET=REPLACE_WITH_STRONG_SECRET_64CHARS"
+Environment="ALLOWED_ORIGINS=https://yourdomain.com"
+ExecStart=/opt/thean-soc/venv/bin/gunicorn \
+    --workers 2 \
+    --threads 4 \
+    --worker-class gthread \
+    --bind 127.0.0.1:5000 \
+    --timeout 30 \
+    --keepalive 5 \
+    --max-requests 1000 \
+    --max-requests-jitter 100 \
+    --access-logfile logs/gunicorn_access.log \
+    --error-logfile logs/gunicorn_error.log \
+    --log-level warning \
+    --capture-output \
+    app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security hardening for the service process itself
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/thean-soc/data /opt/thean-soc/logs
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>THEAN — Security Operations Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<!-- Login Overlay -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <div class="login-title">THEAN SOC</div>
+    <div class="login-sub">// SECURITY OPERATIONS CENTER — AUTHORIZED ACCESS ONLY</div>
+    <div class="login-error" id="login-error"></div>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="field" id="totp-field" style="display:none">
+      <label>TOTP Code (Authenticator App)</label>
+      <input type="text" id="login-totp" placeholder="000000" maxlength="6" autocomplete="one-time-code" inputmode="numeric">
+    </div>
+    <!-- Honeypot — hidden from humans, visible to bots -->
+    <input type="text" name="website" id="hp-website" style="display:none;position:absolute;left:-9999px" tabindex="-1" autocomplete="off">
+    <button class="btn-login" id="login-btn" onclick="doLogin()">AUTHENTICATE →</button>
+    <div class="login-hint">Demo: admin / Admin@1234 &nbsp;|&nbsp; viewer / View@5678</div>
+  </div>
+</div>
+
+<!-- SOC Layout -->
+<div class="soc">
+  <header class="header">
+    <div>
+      <div class="logo-text">THEAN</div>
+      <div class="logo-sub">SECURITY OPERATIONS CENTER</div>
+    </div>
+    <div class="header-sep"></div>
+    <div class="header-stat">
+      <div class="header-stat-val" id="h-threats" style="color:var(--red)">—</div>
+      <div class="header-stat-label">Threats</div>
+    </div>
+    <div class="header-stat">
+      <div class="header-stat-val" id="h-blocked" style="color:var(--amber)">—</div>
+      <div class="header-stat-label">Blocked</div>
+    </div>
+    <div class="header-stat">
+      <div class="header-stat-val" id="h-sessions" style="color:var(--blue)">—</div>
+      <div class="header-stat-label">Sessions</div>
+    </div>
+    <div class="header-stat">
+      <div class="header-stat-val" id="h-users" style="color:var(--green)">—</div>
+      <div class="header-stat-label">Users</div>
+    </div>
+    <div class="status-online" style="margin-left:12px">
+      <div class="pulse-dot"></div>SYSTEM ONLINE
+    </div>
+    <div class="time-display" id="clock" style="margin-left:16px">--:--:--</div>
+  </header>
+
+  <div class="left-panel">
+    <div class="panel-header"><span class="panel-header-title">Navigation</span></div>
+    <div class="nav-items">
+      <div class="nav-btn active" onclick="nav('overview',this)"><i data-lucide="monitor"></i><span>Overview</span></div>
+      <div class="nav-btn" onclick="nav('threats',this)"><i data-lucide="alert-triangle"></i><span>Threats</span><span class="badge" id="nav-threat-count">0</span></div>
+      <div class="nav-btn" onclick="nav('firewall',this)"><i data-lucide="shield"></i><span>Firewall</span></div>
+      <div class="nav-btn" onclick="nav('users',this)"><i data-lucide="users"></i><span>Users</span></div>
+      <div class="nav-btn" onclick="nav('sessions',this)"><i data-lucide="radio"></i><span>Sessions</span></div>
+      <div class="nav-btn" onclick="nav('audit',this)"><i data-lucide="scroll-text"></i><span>Audit</span></div>
+      <div class="nav-btn" onclick="nav('vault',this)"><i data-lucide="lock-keyhole"></i><span>Vault</span></div>
+      <div class="nav-btn" onclick="nav('rooms',this)"><i data-lucide="home"></i><span>Rooms</span></div>
+    </div>
+    <div class="threat-meter">
+      <div class="threat-meter-label">// THREAT LEVEL</div>
+      <div class="threat-level-bar"><div class="threat-level-fill" id="threat-fill" style="width:0%"></div></div>
+      <div class="threat-level-val" id="threat-level-val">0</div>
+      <div class="threat-text" id="threat-text">NOMINAL</div>
+    </div>
+  </div>
+
+  <div class="center-panel">
+    <div class="content-area">
+
+      <!-- Overview -->
+      <div id="page-overview" class="page active">
+        <div class="stat-grid">
+          <div class="stat-box" style="--bar-color:var(--red)"><div class="stat-val" id="s-threats" style="color:var(--red)">—</div><div class="stat-lbl">Active Threats</div></div>
+          <div class="stat-box" style="--bar-color:var(--amber)"><div class="stat-val" id="s-blocked" style="color:var(--amber)">—</div><div class="stat-lbl">FW Blocks</div></div>
+          <div class="stat-box" style="--bar-color:var(--blue)"><div class="stat-val" id="s-sessions" style="color:var(--blue)">—</div><div class="stat-lbl">Sessions</div></div>
+          <div class="stat-box" style="--bar-color:var(--green)"><div class="stat-val" id="s-audit" style="color:var(--green)">—</div><div class="stat-lbl">Audit Entries</div></div>
+        </div>
+        <div class="sec-label">Threat Distribution</div>
+        <div id="threat-chart" style="margin-bottom:20px"></div>
+        <div class="sec-label">Recent Activity</div>
+        <table class="data-table"><thead><tr><th>Time</th><th>Action</th><th>User</th><th>IP</th><th>Result</th></tr></thead><tbody id="recent-audit-tbody"></tbody></table>
+      </div>
+
+      <!-- Threats -->
+      <div id="page-threats" class="page">
+        <div class="sec-label">Intrusion Detection Events</div>
+        <table class="data-table"><thead><tr><th>Time</th><th>IP</th><th>Type</th><th>Severity</th><th>Score</th><th>Status</th><th>Action</th></tr></thead><tbody id="threat-tbody"></tbody></table>
+      </div>
+
+      <!-- Firewall -->
+      <div id="page-firewall" class="page">
+        <div class="sec-label">Firewall Rules
+          <button class="btn btn-green" style="margin-left:auto" onclick="toggleForm('add-rule-form')"><i data-lucide="plus"></i> Add Rule</button>
+        </div>
+        <div id="add-rule-form" class="form-panel" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end">
+            <div><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">TYPE</div>
+              <select class="input-inline" id="fw-type" style="width:100%"><option value="ip_block">IP Block</option><option value="user_agent">User-Agent</option><option value="path_pattern">Path Pattern</option></select></div>
+            <div><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">VALUE</div><input class="input-inline" id="fw-value" placeholder="10.0.0.1" style="width:100%"></div>
+            <div><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">ACTION</div><select class="input-inline" id="fw-action" style="width:100%"><option value="block">Block</option><option value="allow">Allow</option></select></div>
+            <div><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">REASON</div><input class="input-inline" id="fw-desc" placeholder="Reason" style="width:100%"></div>
+            <button class="btn btn-green" onclick="addFWRule()"><i data-lucide="check"></i></button>
+          </div>
+        </div>
+        <table class="data-table"><thead><tr><th>#</th><th>Type</th><th>Value</th><th>Action</th><th>Hits</th><th>Description</th><th></th></tr></thead><tbody id="fw-tbody"></tbody></table>
+      </div>
+
+      <!-- Users -->
+      <div id="page-users" class="page">
+        <div class="sec-label">User Accounts
+          <button class="btn btn-green" style="margin-left:auto" onclick="toggleForm('add-user-form')"><i data-lucide="user-plus"></i> Add User</button>
+        </div>
+        <div id="add-user-form" class="form-panel" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+            <div><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">USERNAME</div><input class="input-inline" id="new-uname" placeholder="username" style="width:100%"></div>
+            <div><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">PASSWORD</div><input type="password" class="input-inline" id="new-upass" placeholder="••••••••" style="width:100%" oninput="checkPwStrength(this.value)"></div>
+            <div><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">ROLE</div><select class="input-inline" id="new-urole" style="width:100%"><option value="admin">admin</option><option value="viewer">viewer</option></select></div>
+            <button class="btn btn-green" onclick="addUser()"><i data-lucide="check"></i></button>
+          </div>
+          <div id="pw-strength-bar" style="margin-top:10px;display:none">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">PASSWORD STRENGTH</div>
+            <div style="height:4px;background:var(--bg);border-radius:1px;overflow:hidden;border:1px solid var(--border)"><div id="pw-strength-fill" style="height:100%;transition:width 0.3s,background 0.3s"></div></div>
+            <div id="pw-strength-label" style="font-family:'Share Tech Mono',monospace;font-size:9px;margin-top:4px"></div>
+          </div>
+        </div>
+        <table class="data-table"><thead><tr><th>Username</th><th>Role</th><th>2FA</th><th>Fails</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead><tbody id="users-tbody"></tbody></table>
+      </div>
+
+      <!-- Sessions -->
+      <div id="page-sessions" class="page">
+        <div class="sec-label">Active Sessions</div>
+        <table class="data-table"><thead><tr><th>Session ID</th><th>Username</th><th>IP</th><th>Device</th><th>Expires</th><th>Action</th></tr></thead><tbody id="sessions-tbody"></tbody></table>
+      </div>
+
+      <!-- Audit -->
+      <div id="page-audit" class="page">
+        <div class="sec-label">Audit Log — Hash-Chained Tamper Detection
+          <button class="btn btn-green" style="margin-left:auto" onclick="verifyAudit()"><i data-lucide="shield-check"></i> Verify Integrity</button>
+        </div>
+        <div id="integrity-result"></div>
+        <table class="data-table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th><th>IP</th><th>Result</th></tr></thead><tbody id="audit-tbody"></tbody></table>
+      </div>
+
+      <!-- Vault -->
+      <div id="page-vault" class="page">
+        <div class="sec-label">Encrypted Secrets Vault (AES-256 Fernet)</div>
+        <div class="form-panel">
+          <div style="display:grid;grid-template-columns:1fr 2fr auto auto;gap:8px;align-items:end">
+            <div><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">KEY NAME</div><input class="input-inline" id="vault-key" placeholder="api_key" style="width:100%"></div>
+            <div><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px">SECRET VALUE</div><input class="input-inline" id="vault-val" placeholder="sk-..." style="width:100%"></div>
+            <button class="btn btn-green" onclick="saveSecret()"><i data-lucide="save"></i> Store</button>
+            <button class="btn btn-ghost" onclick="readSecret()"><i data-lucide="eye"></i> Read</button>
+          </div>
+          <div id="vault-result" style="margin-top:10px;display:none;font-family:'Share Tech Mono',monospace;font-size:11px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:2px;word-break:break-all"></div>
+        </div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);padding:12px 14px;background:rgba(0,255,170,0.03);border:1px solid rgba(0,255,170,0.1);border-radius:3px">
+          <span style="color:var(--green)">// ENCRYPTION:</span> AES-128-CBC via Fernet. Key: data/.fernet_key (chmod 600). Each secret has HMAC-SHA256 auth tag + timestamp.
+        </div>
+      </div>
+
+      <!-- Room Control -->
+      <div id="page-rooms" class="page">
+        <div class="sec-label">Room-by-Room Security Control</div>
+        <div class="room-grid" id="room-grid"></div>
+        <div class="global-controls">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:12px;letter-spacing:1px">// GLOBAL ROOM CONTROLS</div>
+          <div class="global-btn-grid">
+            <button class="btn btn-green" onclick="setGlobalMode('secure')"><i data-lucide="shield-check"></i> Lock All Rooms</button>
+            <button class="btn btn-amber" onclick="setGlobalMode('standby')"><i data-lucide="pause"></i> Standby Mode</button>
+            <button class="btn btn-red"   onclick="setGlobalMode('alert')"><i data-lucide="bell"></i> Alert Mode</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="panel-header">
+      <span class="panel-header-title">Live Event Feed</span>
+      <span class="panel-header-count" id="feed-count">0</span>
+    </div>
+    <div class="event-feed" id="event-feed"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
